@@ -1,0 +1,258 @@
+#!/usr/bin/env python
+"""
+Usage: 
+    provision (--version|--help)
+    provision --config=<config>
+    provision [--cpu=<cpu>] [--ram=<ram>] [--disk=<disk>] [--swap=<swap>]
+                [--interface=<interface>...] [--bridge=<bridge>...]
+                [--hostname=<hostname>] --image=<image> <name>
+
+Options:
+    --config=<config>                   Path to a config file that specify the details of a server
+    --cpu=<cpu>                         Number of CPU cores to allocate to the server [default: 4]
+    --ram=<ram>                         Amount of RAM to allocate to the server (in MB) [default: 512]
+    --disk=<disk>                       Disk size to allocate to the server (in GB) [default: 4]
+    --swap=<swap>                       SWAP size to allocate to the server (in GB) [default: 0.5]
+    --interface=<interface>...          List of network interfaces (details below) [default: eth0:dhcp]
+    --bridge=<bridge>...                List of network bridges (details below) [default: xenbr0:eth0]
+    --hostname=<hostname>               A hostname to apply to the server
+    --image=<image>                     A template image to use and base the server on
+    <name>                              A unique name for the server
+
+
+A typical configuration for a host looks like this:
+
+{
+    "name": "unique_name",
+    "hostname": "some_hostname",
+    "image": "debian8/base",
+    "cpu": 4,
+    "ram": 512,
+    "disk": 20,
+    "swap": 2,
+    "interfaces": [
+        {
+            "name": "eth0",
+            "type": "static",
+            "address": "1.1.1.2",
+            "netmask": "255.255.255.0",
+            "gateway": "1.1.1.1"
+        },
+        {
+            "name": "eth1",
+            "type": "dhcp"
+        }
+    ],
+    "bridges": {
+        "xenbr0": ["eth0"],
+        "xenbr1": ["eth1"]
+    }
+}
+
+When using the CLI parameters, the interfaces and bridges definitions need to follow a specific format.
+
+Interfaces: 
+  - format: "if_name:type:address:mask:gateway"
+  - details:
+    - if_name: a valid interface name; e.g. eth0 / eth1
+    - type: either dhcp or static, it dhcp other parameters are ignored
+    - address: only if static, a valid IP address
+    - mask (optional): only if static, a valid netmask - default to 255.255.255.0
+    - gateway (optional): only if static, the gateway IP address
+  - e.g:
+    - 'eth0:dhcp' --> eth0 is dhcp based
+    - 'eth1:static:192.168.1.100::192.168.1.1' --> eth1 is static IP .100/24 with gateway to .1
+
+Bridges:
+  - format: "br_name:if_name1:if_name2:..."
+  - details:
+    - br_name: an existing bridge name; e.g. xenbr0
+    - if_names: a list of interfaces to allocate to the bridge
+  - e.g:
+    - 'xenbr0:eth0' --> eth0 bind to xenbr0
+    - 'xenbr1:eth0:eth1' --> eth0 and eth1 bind to xenbr1
+
+"""
+
+import docopt
+import os
+import sys
+from provision import __version__
+
+# VALID_SERVICES = ['file','couchdb','mongodb','mysql','postgresql','redis']
+# BASE_INSTALL = '/opt/batt'
+
+# def list_services(args):
+#     '''
+#     List the enabled services
+#     '''
+#     if args.get('available'):
+#         services = _get_services('scripts-available')
+#         if len(services) > 0:
+#             print 'Available services:\n\t- %s' % '\n\t- '.join(services)
+#         else:
+#             print 'No services available.'
+#     elif args.get('disabled'):
+#         print 'Soon...'
+#     else:
+#         # By default list enabled
+#         services = _get_services('scripts-enabled')
+#         if len(services) > 0:
+#             print 'Enabled services:\n\t- %s' % '\n\t- '.join(services)
+#         else:
+#             print 'No services enabled.'
+
+# def enable(services):
+#     '''
+#     Create / Ensure the links in scripts-enabled is present
+#     '''
+#     print 'Enabling the following services: %s' % ', '.join(services)
+#     for service in services:
+#         source = os.path.join(BASE_INSTALL, 'scripts-available', 'backup-'+ service)
+#         dest = os.path.join(BASE_INSTALL, 'scripts-enabled', 'backup-'+ service)
+#         try:
+#             os.symlink(source, dest)
+#             print 'Service %s enabled' % service
+#         except OSError as e:
+#             # File exist
+#             if e.errno == 17:
+#                 print 'Service %s already enabled' % service
+#             else:
+#                 sys.stderr.write('%s\n' % e) 
+#         except Exception as e:
+#             # Don't crash, only print
+#             sys.stderr.write('%s\n' % e) 
+
+# def disable(services):
+#     '''
+#     Ensure the links in scripts-enabled is absent
+#     '''
+#     print 'Disabling the following services: %s' % ', '.join(services)
+#     for service in services:
+#         try:
+#             dest = os.path.join(BASE_INSTALL, 'scripts-enabled', 'backup-'+ service)
+#             os.unlink(dest)
+#             print 'Service %s disabled' % service
+#         except OSError as e:
+#             # File exist
+#             if e.errno == 2:
+#                 print 'Service %s already disabled' % service
+#             else:
+#                 sys.stderr.write('%s\n' % e) 
+#         except Exception as e:
+#             # Don't crash, only print
+#             sys.stderr.write('%s\n' % e) 
+
+# def purge(args):
+#     '''
+#     Purge old backup files
+#     '''
+#     print 'Soon...'
+
+# def backup(args):
+#     '''
+#     Execute the backup scripts, passing the various arguments gathered from the CLI
+#     '''
+#     # Prepare services set
+#     services = set(args.get('<service>'))
+#     dest = datetime.now().strftime(args.get('--path'))
+
+#     # Set environment var for all scripts
+#     os.environ.update({'BATT_DEST': dest})
+#     try:
+#         os.makedirs(dest)
+#     except OSError as e:
+#         # File exist
+#         if e.errno == 17:
+#             pass
+#         else:
+#             raise e
+
+#     # Prepare the implicit services
+#     if len(args.get('--file', [])) > 0:
+#         services.add('file')
+#     if len(args.get('--couchdb-db', [])) > 0:
+#         services.add('couchdb')
+#     if len(args.get('--mongodb-db', [])) > 0:
+#         services.add('mongodb')
+#     if len(args.get('--mysql-db', [])) > 0:
+#         services.add('mysql')
+#     if len(args.get('--postgresql-db', [])) > 0:
+#         services.add('postgresql')
+#     if len(args.get('--redis-db', [])) > 0:
+#         services.add('redis')
+
+#     # Load all the services if none provided
+#     if len(services) == 0:
+#         services = _get_services('scripts-enabled')
+
+#     # Still no services, seems like batt is not configured
+#     if len(services) == 0:
+#         sys.stderr.write('No services specified.\n\n')
+#         sys.stderr.write('Either add services in the command line. (batt <service>)\n')
+#         sys.stderr.write('Or enable default services (batt enable <service>).\n\n')
+#         sys.stderr.write('Refer to the help for more information. (batt -h)\n')
+#         sys.exit(0)
+
+#     for service in services:
+#         if service not in VALID_SERVICES:
+#             sys.stderr.write('Skipping invalid service: %s\n' % service)
+#             continue
+
+#         service_script = os.path.join(BASE_INSTALL, 'scripts-available', 'backup-'+ service)
+#         command = [service_script]
+
+#         if service == 'file':
+#             command.extend(args.get('--file'))
+#         elif service == 'couchdb':
+#             command.extend(args.get('--couchdb-db'))
+#         elif service == 'mongodb':
+#             command.extend(args.get('--mongodb-db'))
+#         elif service == 'mysql':
+#             command.extend(args.get('--mysql-db'))
+#         elif service == 'postgresql':
+#             command.extend(args.get('--postgresql-db'))
+#         elif service == 'redis':
+#             command.extend(args.get('--redis-db'))
+
+#         returncode, stdout, stderr = execute(command)
+#         # TODO ... something with the data / notification / etc.
+
+# def _get_services(path):
+#     '''
+#     Get all the services specified in path - matching backup-*
+#     '''
+#     services = set()
+#     scripts_enabled = os.path.join(BASE_INSTALL, path)
+#     for script in os.listdir(scripts_enabled):
+#         service = script.replace('backup-','')
+#         services.add(service)
+#     return services
+
+
+# def ensure_root():
+#     '''
+#     Currently require the run as root (UID=0)
+#     '''
+#     if os.getuid() != 0:
+#         sys.stderr.write('Currently required to run as root. Either swith to root user or use the sudo command.\n')
+#         sys.exit(1)
+def handle_provision(args):
+    '''
+    Provision the server
+    '''
+    print "do provision"
+    print args
+
+if __name__ == '__main__':
+    args = docopt.docopt(
+        __doc__,
+        version="version "+ __version__,
+        help=True
+    )
+
+    if args.get('--config'):
+        print "Does not support yet the config file - use the CLI arguments."
+        sys.exit(1)
+    else:
+        handle_provision(args)
