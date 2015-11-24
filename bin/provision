@@ -44,8 +44,8 @@ A typical configuration for a host looks like this:
         }
     ],
     "bridges": {
-        "xenbr0": ["eth0"],
-        "xenbr1": ["eth1"]
+        "eth0": "xenbr0",
+        "eth1": "xenbr1"
     }
 }
 
@@ -65,21 +65,20 @@ Interfaces:
     - 'eth1:static:192.168.1.100::192.168.1.1' --> eth1 is static IP .100/24 with gateway to .1
 
 Bridges:
-  - format: "br_name:if_name1:if_name2:..."
+  - format: "if_name:br_name"
   - details:
+    - if_name: an interface to bind on the bridge; e.g. eth0
     - br_name: an existing bridge name; e.g. xenbr0
-    - if_names: a list of interfaces to allocate to the bridge
   - e.g:
-    - 'xenbr0:eth0' --> eth0 bind to xenbr0
-    - 'xenbr1:eth0:eth1' --> eth0 and eth1 bind to xenbr1
+    - 'eth0:xenbr0' --> eth0 bind to xenbr0
+    - 'eth1:xenbr1' --> eth1 bind to xenbr1
 
 """
 
 import docopt
 import os
 import sys
-from provision import __version__
-
+from provision import __version__, build
 
 def _parse_interface(interface):
     '''
@@ -115,28 +114,25 @@ def _parse_bridge(bridge):
     '''
     Parse the bridges
     '''
-    br = {}
-
     params = bridge.split(':')
-    if len(params) >= 1:
-        br.update({params[0]: params[1:]})
+    if len(params) == 2:
+        return (params[0], params[1])
     else:
         # Invalid number of args
         raise RuntimeError('Invalid parameters for bridge')
-    return br
 
 
-def handle_provision(args):
+def parse_ags(args):
     '''
     Provision the server
     '''
-    print "do provision"
-    print args
 
     interfaces = [ _parse_interface(interface) for interface in args.get('--interface') ]
-    bridges = {}
-    for bridge in args.get('--bridge'):
-        bridges.update(_parse_bridge(bridge))
+    # Update the interfaces so the bridge get assigned
+    for bridge_string in args.get('--bridge'):
+        iface, bridge = _parse_bridge(bridge_string)
+        # BUUUUUG
+        interfaces = [ interface.update({'bridge': bridge}) for interface in interfaces if interface.get('name') == iface ]
 
     server = {
         'name': args.get('<name>'),
@@ -146,10 +142,9 @@ def handle_provision(args):
         'ram': int(args.get('--ram')),
         'disk': float(args.get('--disk')),
         'swap': float(args.get('--swap')),
-        'interfaces': interfaces,
-        'bridges': bridges
+        'interfaces': interfaces
     }
-    print server
+    return server
 
 if __name__ == '__main__':
     args = docopt.docopt(
@@ -162,4 +157,7 @@ if __name__ == '__main__':
         print "Does not support yet the config file - use the CLI arguments."
         sys.exit(1)
     else:
-        handle_provision(args)
+        server = parse_ags(args)
+
+    build(server)
+    
