@@ -55,12 +55,13 @@ Interfaces:
   - format: "if_name:type:address:mask:gateway"
   - details:
     - if_name: a valid interface name; e.g. eth0 / eth1
-    - type: either dhcp or static, it dhcp other parameters are ignored
+    - type: either dhcp or static, it dhcp other parameters are ignored - default dhcp
     - address: only if static, a valid IP address
     - mask (optional): only if static, a valid netmask - default to 255.255.255.0
     - gateway (optional): only if static, the gateway IP address
   - e.g:
-    - 'eth0:dhcp' --> eth0 is dhcp based
+    - 'eth0' --> eth0 is dhcp based
+    - 'eth1:dhcp' --> eth1 is dhcp based
     - 'eth1:static:192.168.1.100::192.168.1.1' --> eth1 is static IP .100/24 with gateway to .1
 
 Bridges:
@@ -79,170 +80,76 @@ import os
 import sys
 from provision import __version__
 
-# VALID_SERVICES = ['file','couchdb','mongodb','mysql','postgresql','redis']
-# BASE_INSTALL = '/opt/batt'
 
-# def list_services(args):
-#     '''
-#     List the enabled services
-#     '''
-#     if args.get('available'):
-#         services = _get_services('scripts-available')
-#         if len(services) > 0:
-#             print 'Available services:\n\t- %s' % '\n\t- '.join(services)
-#         else:
-#             print 'No services available.'
-#     elif args.get('disabled'):
-#         print 'Soon...'
-#     else:
-#         # By default list enabled
-#         services = _get_services('scripts-enabled')
-#         if len(services) > 0:
-#             print 'Enabled services:\n\t- %s' % '\n\t- '.join(services)
-#         else:
-#             print 'No services enabled.'
+def _parse_interface(interface):
+    '''
+    Parse the interface string and return a proper dict
+    '''
+    iface = {
+        'type': 'dhcp'
+    }
 
-# def enable(services):
-#     '''
-#     Create / Ensure the links in scripts-enabled is present
-#     '''
-#     print 'Enabling the following services: %s' % ', '.join(services)
-#     for service in services:
-#         source = os.path.join(BASE_INSTALL, 'scripts-available', 'backup-'+ service)
-#         dest = os.path.join(BASE_INSTALL, 'scripts-enabled', 'backup-'+ service)
-#         try:
-#             os.symlink(source, dest)
-#             print 'Service %s enabled' % service
-#         except OSError as e:
-#             # File exist
-#             if e.errno == 17:
-#                 print 'Service %s already enabled' % service
-#             else:
-#                 sys.stderr.write('%s\n' % e) 
-#         except Exception as e:
-#             # Don't crash, only print
-#             sys.stderr.write('%s\n' % e) 
+    params = interface.split(':')
+    if len(params) == 1:
+        iface.update({'name': params[0]})
+    elif len(params) == 2:
+        iface.update({'name': params[0], 'type': params[1]})
+    elif len(params) == 3:
+        iface.update({'name': params[0], 'type': params[1], 'address': params[2], 'netmask': '255.255.255.0'})
+    elif len(params) >= 4:
+        # Handle netmask
+        if params[3]:
+            netmask = params[3]
+        else:
+            netmask = '255.255.255.0'
+        iface.update({'name': params[0], 'type': params[1], 'address': params[2], 'netmask': netmask})
+        # Handle gateway if defined
+        if len(params) == 5:
+            iface.update({'gateway': params[4]})
+    else:
+        # Invalid number of args
+        raise RuntimeError('Too many parameters for interface')
+    return iface
 
-# def disable(services):
-#     '''
-#     Ensure the links in scripts-enabled is absent
-#     '''
-#     print 'Disabling the following services: %s' % ', '.join(services)
-#     for service in services:
-#         try:
-#             dest = os.path.join(BASE_INSTALL, 'scripts-enabled', 'backup-'+ service)
-#             os.unlink(dest)
-#             print 'Service %s disabled' % service
-#         except OSError as e:
-#             # File exist
-#             if e.errno == 2:
-#                 print 'Service %s already disabled' % service
-#             else:
-#                 sys.stderr.write('%s\n' % e) 
-#         except Exception as e:
-#             # Don't crash, only print
-#             sys.stderr.write('%s\n' % e) 
+def _parse_bridge(bridge):
+    '''
+    Parse the bridges
+    '''
+    br = {}
 
-# def purge(args):
-#     '''
-#     Purge old backup files
-#     '''
-#     print 'Soon...'
-
-# def backup(args):
-#     '''
-#     Execute the backup scripts, passing the various arguments gathered from the CLI
-#     '''
-#     # Prepare services set
-#     services = set(args.get('<service>'))
-#     dest = datetime.now().strftime(args.get('--path'))
-
-#     # Set environment var for all scripts
-#     os.environ.update({'BATT_DEST': dest})
-#     try:
-#         os.makedirs(dest)
-#     except OSError as e:
-#         # File exist
-#         if e.errno == 17:
-#             pass
-#         else:
-#             raise e
-
-#     # Prepare the implicit services
-#     if len(args.get('--file', [])) > 0:
-#         services.add('file')
-#     if len(args.get('--couchdb-db', [])) > 0:
-#         services.add('couchdb')
-#     if len(args.get('--mongodb-db', [])) > 0:
-#         services.add('mongodb')
-#     if len(args.get('--mysql-db', [])) > 0:
-#         services.add('mysql')
-#     if len(args.get('--postgresql-db', [])) > 0:
-#         services.add('postgresql')
-#     if len(args.get('--redis-db', [])) > 0:
-#         services.add('redis')
-
-#     # Load all the services if none provided
-#     if len(services) == 0:
-#         services = _get_services('scripts-enabled')
-
-#     # Still no services, seems like batt is not configured
-#     if len(services) == 0:
-#         sys.stderr.write('No services specified.\n\n')
-#         sys.stderr.write('Either add services in the command line. (batt <service>)\n')
-#         sys.stderr.write('Or enable default services (batt enable <service>).\n\n')
-#         sys.stderr.write('Refer to the help for more information. (batt -h)\n')
-#         sys.exit(0)
-
-#     for service in services:
-#         if service not in VALID_SERVICES:
-#             sys.stderr.write('Skipping invalid service: %s\n' % service)
-#             continue
-
-#         service_script = os.path.join(BASE_INSTALL, 'scripts-available', 'backup-'+ service)
-#         command = [service_script]
-
-#         if service == 'file':
-#             command.extend(args.get('--file'))
-#         elif service == 'couchdb':
-#             command.extend(args.get('--couchdb-db'))
-#         elif service == 'mongodb':
-#             command.extend(args.get('--mongodb-db'))
-#         elif service == 'mysql':
-#             command.extend(args.get('--mysql-db'))
-#         elif service == 'postgresql':
-#             command.extend(args.get('--postgresql-db'))
-#         elif service == 'redis':
-#             command.extend(args.get('--redis-db'))
-
-#         returncode, stdout, stderr = execute(command)
-#         # TODO ... something with the data / notification / etc.
-
-# def _get_services(path):
-#     '''
-#     Get all the services specified in path - matching backup-*
-#     '''
-#     services = set()
-#     scripts_enabled = os.path.join(BASE_INSTALL, path)
-#     for script in os.listdir(scripts_enabled):
-#         service = script.replace('backup-','')
-#         services.add(service)
-#     return services
+    params = bridge.split(':')
+    if len(params) >= 1:
+        br.update({params[0]: params[1:]})
+    else:
+        # Invalid number of args
+        raise RuntimeError('Invalid parameters for bridge')
+    return br
 
 
-# def ensure_root():
-#     '''
-#     Currently require the run as root (UID=0)
-#     '''
-#     if os.getuid() != 0:
-#         sys.stderr.write('Currently required to run as root. Either swith to root user or use the sudo command.\n')
-#         sys.exit(1)
 def handle_provision(args):
     '''
     Provision the server
     '''
     print "do provision"
     print args
+
+    interfaces = [ _parse_interface(interface) for interface in args.get('--interface') ]
+    bridges = {}
+    for bridge in args.get('--bridge'):
+        bridges.update(_parse_bridge(bridge))
+
+    server = {
+        'name': args.get('<name>'),
+        'hostname': args.get('--hostname'),
+        'image': args.get('--image'),
+        'cpu': int(args.get('--cpu')),
+        'ram': int(args.get('--ram')),
+        'disk': float(args.get('--disk')),
+        'swap': float(args.get('--swap')),
+        'interfaces': interfaces,
+        'bridges': bridges
+    }
+    print server
 
 if __name__ == '__main__':
     args = docopt.docopt(
