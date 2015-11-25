@@ -74,9 +74,21 @@ def build(server=None, createonly=False, templates='', dest='.'):
     with open(config_file, 'w') as f:
         f.write(config)
 
-    # Copy the Disks files
-    for f in ('disk.img', 'swap.img'):
-        shutil.copy(os.path.join(template_folder, f), os.path.join(dest_folder, f))
+    # Copy/resize the disk files
+    shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
+    subprocess.Popen('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))
+    subprocess.Popen('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), server.get('disk')))
+
+
+    # Handle SWAP
+    subprocess.Popen('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
+            os.path.join(dest_folder, 'swap.img'),
+            1024*1024,
+            server.get('swap')*1024
+        ))
+    subprocess.Popen('mkswap %s' % (
+            os.path.join(dest_folder, 'swap.img')
+        ))
 
     # Do the image update
     mount_point = mount_images(os.path.join(dest_folder, 'disk.img'))
