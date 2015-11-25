@@ -35,3 +35,5 @@ provision --help
 - configure / delete action
 - drop root requirement?
 - wrapper to spawn full environment, manage bridges, etc.
+- ability to list valid distribs and flavors
+- API based service
