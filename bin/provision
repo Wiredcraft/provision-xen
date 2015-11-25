@@ -2,10 +2,14 @@
 """
 Usage: 
     provision (--version|--help)
-    provision --config=<config>
-    provision [--cpu=<cpu>] [--ram=<ram>] [--disk=<disk>] [--swap=<swap>]
+    provision configure
+    provision create --config=<config>
+    provision create [--cpu=<cpu>] [--ram=<ram>] [--disk=<disk>] [--swap=<swap>]
                 [--interface=<interface>...] [--bridge=<bridge>...]
-                [--hostname=<hostname>] --image=<image> <name>
+                [--hostname=<hostname>] [--create-only] 
+                [--path-server=<path-server>] [--path-images=<path-images>]
+                --image=<image> <name>
+    provision delete [--path-server=<path-server>] [--full] <name>
 
 Options:
     --config=<config>                   Path to a config file that specify the details of a server
@@ -17,8 +21,15 @@ Options:
     --bridge=<bridge>...                List of network bridges (details below) [default: xenbr0:eth0]
     --hostname=<hostname>               A hostname to apply to the server
     --image=<image>                     A template image to use and base the server on
+    --create-only                       Only create the instance, do not start
+    --path-server=<path-server>         Path where the config and disks will be created [default: .]
+    --path-images=<path-images>         Path where we can find the image templates [default: /data/xen/templates]
     <name>                              A unique name for the server
 
+Help:
+    provision configure                 Configure the environment, the template paths, etc.
+    provision create                    Create and start a server
+    provision delete                    Stop a server and delete the disks [EXPERIMENTAL]
 
 A typical configuration for a host looks like this:
 
@@ -153,11 +164,22 @@ if __name__ == '__main__':
         help=True
     )
 
-    if args.get('--config'):
-        print "Does not support yet the config file - use the CLI arguments."
-        sys.exit(1)
-    else:
-        server = parse_ags(args)
+    print args
 
-    build(server)
+    if args.get('configure'):
+        print "Configure the tool (soon)."
+        
+    if args.get('create'):
+        if args.get('--config'):
+            print "Does not support yet the config file - use the CLI arguments."
+            sys.exit(1)
+        else:
+            server = parse_ags(args)
+        build(server, 
+            createonly=args.get('--create-only'), 
+            templates=args.get('--path-images'),
+            dest=args.get('--path-server'))
+
+    if args.get('delete'):
+        print "Delete the server (soon)."
     
