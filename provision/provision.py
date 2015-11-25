@@ -21,7 +21,9 @@ def mount_images(disk):
     Mount a disk file in loopback mode, and return the folder
     '''
     tempfolder = tempfile.mkdtemp()
-    subprocess.Popen('mount -o loop %s %s' % (disk, tempfolder))
+    command = 'mount -o loop %s %s' % (disk, tempfolder)
+    print command
+    subprocess.Popen(command)
     return tempfolder
 
 def umount_images(mount_point):
