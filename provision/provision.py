@@ -1,6 +1,8 @@
 
 import os
+import time
 import shutil
+import shlex
 import subprocess
 import tempfile
 
@@ -21,26 +23,31 @@ def mount_images(disk):
     Mount a disk file in loopback mode, and return the folder
     '''
     tempfolder = tempfile.mkdtemp()
-    command = 'mount -o loop %s %s' % (disk, tempfolder)
-    print command
-    subprocess.Popen(command)
+    subprocess.Popen(shlex.split('mount -o loop %s %s' % (disk, tempfolder))).wait()
     return tempfolder
 
 def umount_images(mount_point):
     '''
     Mount a disk file in loopback mode, and return the folder
     '''
-    subprocess.Popen('umount %s' % (mount_point))
+    subprocess.Popen(shlex.split('umount %s' % (mount_point))).wait()
 
 def get_distrib_family(base):
     '''
     Look at the folder structure in the base folder and define the distrib 
     '''
+    print os.path.join(base, 'etc/sysconfig')
+    print os.path.join(base, 'etc/network/interfaces')
+
     if os.path.exists(os.path.join(base, 'etc/sysconfig')):
+        print 'redhat'
         return 'redhat'
-    if os.path.exists(os.path.join(base, 'etc/network/interfaces')):
+    elif os.path.exists(os.path.join(base, 'etc/network/interfaces')):
+        print 'debian'
         return 'debian'
-    return False
+    else:
+        print 'wtf'
+        return False
 
 
 def build(server=None, createonly=False, templates='', dest='.'):
@@ -75,18 +82,19 @@ def build(server=None, createonly=False, templates='', dest='.'):
 
     # Copy/resize the disk files
     shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
-    subprocess.Popen('/sbin/e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))
-    subprocess.Popen('/sbin/resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), server.get('disk')))
+    subprocess.Popen(shlex.split('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))).wait()
+    subprocess.Popen(shlex.split('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))))).wait()
+    subprocess.Popen(shlex.split('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))).wait()
 
     # Handle SWAP
-    subprocess.Popen('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
-            os.path.join(dest_folder, 'swap.img'),
-            1024*1024,
-            server.get('swap')*1024
-        ))
-    subprocess.Popen('/sbin/mkswap %s' % (
-            os.path.join(dest_folder, 'swap.img')
-        ))
+    subprocess.Popen(shlex.split('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
+                os.path.join(dest_folder, 'swap.img'),
+                1024*1024,
+                int(server.get('swap')*1024)
+            ))).wait()
+    subprocess.Popen(shlex.split('mkswap %s' % (
+                os.path.join(dest_folder, 'swap.img')
+            ))).wait()
 
     # Do the image update
     mount_point = mount_images(os.path.join(dest_folder, 'disk.img'))
@@ -96,10 +104,12 @@ def build(server=None, createonly=False, templates='', dest='.'):
             with open(os.path.join(mount_point, 'etc/sysconfig/network-scripts/ifcfg-'+ iface.get('name')), 'w') as f:
                 template = Template(RH_IFACE_TPL)
                 f.write(template.render(iface))
+        # Shit way to ensure the network service get started ... shit image?
+        subprocess.Popen(shlex.split('chroot %s systemctl enable network' % mount_point)).wait()
     elif os_family == 'debian':
         with open(os.path.join(mount_point, 'etc/network/interfaces'), 'w') as f:
             template = Template(DEB_IFACE_TPL)
-            f.write(template.render(server.get('interfaces')))
+            f.write(template.render(server))
     else:
         print "Unknown os - no network configured"
 
@@ -110,4 +120,4 @@ def build(server=None, createonly=False, templates='', dest='.'):
     umount_images(mount_point)
 
     if not createonly:
-        subprocess.Popen('sudo /usr/sbin/xl create %s' % (config_file))
+        subprocess.Popen(shlex.split('xl create %s' % (config_file))).wait()
