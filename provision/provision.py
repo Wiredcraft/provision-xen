@@ -75,8 +75,8 @@ def build(server=None, createonly=False, templates='', dest='.'):
 
     # Copy/resize the disk files
     shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
-    subprocess.Popen('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))
-    subprocess.Popen('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), server.get('disk')))
+    subprocess.Popen('/sbin/e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))
+    subprocess.Popen('/sbin/resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), server.get('disk')))
 
     # Handle SWAP
     subprocess.Popen('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
@@ -84,7 +84,7 @@ def build(server=None, createonly=False, templates='', dest='.'):
             1024*1024,
             server.get('swap')*1024
         ))
-    subprocess.Popen('mkswap %s' % (
+    subprocess.Popen('/sbin/mkswap %s' % (
             os.path.join(dest_folder, 'swap.img')
         ))
 
@@ -110,4 +110,4 @@ def build(server=None, createonly=False, templates='', dest='.'):
     umount_images(mount_point)
 
     if not createonly:
-        subprocess.Popen('sudo xl create %s' % (config_file))
+        subprocess.Popen('sudo /usr/sbin/xl create %s' % (config_file))
