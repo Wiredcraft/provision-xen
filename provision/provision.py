@@ -1,5 +1,6 @@
 
 import os
+import sys
 import time
 import shutil
 import shlex
@@ -8,6 +9,28 @@ import tempfile
 
 from jinja2 import Template
 from templates import XEN_CONFIG_TPL, DEB_IFACE_TPL, RH_IFACE_TPL
+
+def _run(command, message='', continue_on_failure=False, should_fail=False):
+    '''
+    Execute a command, display message, resume or not on failure
+    '''
+    print '%s ...' % (message),
+    cmd = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    while type(cmd.poll()) == type(None):
+        pass
+
+    if cmd.returncode != 0:
+        if should_fail:
+            print '[OK]'
+        else:
+            print '[Error]'
+            print 'command: %s' % command
+            print 'stdout: %s' % cmd.stdout.read()
+            print 'stderr: %s' % cmd.stderr.read()
+            if not continue_on_failure:
+                sys.exit(cmd.returncode)
+    else:
+        print '[OK]'
 
 
 def prepare_xen_config(server, dest='.'):
@@ -23,30 +46,24 @@ def mount_images(disk):
     Mount a disk file in loopback mode, and return the folder
     '''
     tempfolder = tempfile.mkdtemp()
-    subprocess.Popen(shlex.split('mount -o loop %s %s' % (disk, tempfolder))).wait()
+    _run('mount -o loop %s %s' % (disk, tempfolder), message='Mounting image %s in loopback' % disk)
     return tempfolder
 
 def umount_images(mount_point):
     '''
     Mount a disk file in loopback mode, and return the folder
     '''
-    subprocess.Popen(shlex.split('umount %s' % (mount_point))).wait()
+    _run('umount %s' % (mount_point), message='Unmounting %s' % mount_point)
 
 def get_distrib_family(base):
     '''
     Look at the folder structure in the base folder and define the distrib 
     '''
-    print os.path.join(base, 'etc/sysconfig')
-    print os.path.join(base, 'etc/network/interfaces')
-
     if os.path.exists(os.path.join(base, 'etc/sysconfig')):
-        print 'redhat'
         return 'redhat'
     elif os.path.exists(os.path.join(base, 'etc/network/interfaces')):
-        print 'debian'
         return 'debian'
     else:
-        print 'wtf'
         return False
 
 
@@ -61,6 +78,10 @@ def build(server=None, createonly=False, templates='', dest='.'):
     config_file = os.path.join(dest_folder, server.get('name') +'.cfg')
     if os.path.exists(config_file):
         raise RuntimeError('Xen config file already exist')
+
+    _run('xl list %s' % server.get('name'), 
+        message='Checking if there is already a running server with the same name',
+        should_fail=True)
 
     template_folder = os.path.join(os.path.realpath(templates), server.get('image'))
     if not os.path.exists(os.path.join(template_folder, 'disk.img')):
@@ -82,19 +103,22 @@ def build(server=None, createonly=False, templates='', dest='.'):
 
     # Copy/resize the disk files
     shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
-    subprocess.Popen(shlex.split('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))).wait()
-    subprocess.Popen(shlex.split('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))))).wait()
-    subprocess.Popen(shlex.split('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))).wait()
+    _run('e2fsck -f -p %s' % (os.path.join(dest_folder, 'disk.img')),
+        message='Checking the filesystem')
+    _run('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))),
+        message='Resizing the disk')
 
     # Handle SWAP
-    subprocess.Popen(shlex.split('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
+    _run('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
                 os.path.join(dest_folder, 'swap.img'),
                 1024*1024,
                 int(server.get('swap')*1024)
-            ))).wait()
-    subprocess.Popen(shlex.split('mkswap %s' % (
+            ),
+        message='Creating the SWAP disk')
+    _run('mkswap %s' % (
                 os.path.join(dest_folder, 'swap.img')
-            ))).wait()
+            ),
+        message='Setup the SWAP area with mkswap')
 
     # Do the image update
     mount_point = mount_images(os.path.join(dest_folder, 'disk.img'))
@@ -103,21 +127,26 @@ def build(server=None, createonly=False, templates='', dest='.'):
         for iface in server.get('interfaces'):
             with open(os.path.join(mount_point, 'etc/sysconfig/network-scripts/ifcfg-'+ iface.get('name')), 'w') as f:
                 template = Template(RH_IFACE_TPL)
+                print '  - Preparing config for interface: %s' % iface.get('name')
                 f.write(template.render(iface))
         # Shit way to ensure the network service get started ... shit image?
-        subprocess.Popen(shlex.split('chroot %s systemctl enable network' % mount_point)).wait()
+        # subprocess.Popen(shlex.split('chroot %s systemctl enable network' % mount_point)).wait()
     elif os_family == 'debian':
         with open(os.path.join(mount_point, 'etc/network/interfaces'), 'w') as f:
             template = Template(DEB_IFACE_TPL)
+            print '  - Preparing config for interfaces: %s' % ', '.join([iface.get('name') for iface in server.get('interfaces')])
             f.write(template.render(server))
     else:
         print "Unknown os - no network configured"
 
     if server.get('hostname'):
         with open(os.path.join(mount_point, 'etc/hostname'), 'w') as f:
+            print '  - Preparing hostname'
             f.write(server.get('hostname'))
 
     umount_images(mount_point)
 
     if not createonly:
-        subprocess.Popen(shlex.split('xl create %s' % (config_file))).wait()
+        _run('xl create %s' % (config_file), message='Launching the server')
+
+    os.rmdir(mount_point)
