@@ -141,8 +141,9 @@ def parse_ags(args):
     # Update the interfaces so the bridge get assigned
     for bridge_string in args.get('--bridge'):
         iface, bridge = _parse_bridge(bridge_string)
-        # BUUUUUG
-        interfaces = [ interface.update({'bridge': bridge}) for interface in interfaces if interface.get('name') == iface ]
+        for interface in interfaces:
+            if interface.get('name') == iface:
+                interface.update({'bridge': bridge})
 
     server = {
         'name': args.get('<name>'),
@@ -154,6 +155,7 @@ def parse_ags(args):
         'swap': float(args.get('--swap')),
         'interfaces': interfaces
     }
+    print server
     return server
 
 if __name__ == '__main__':
