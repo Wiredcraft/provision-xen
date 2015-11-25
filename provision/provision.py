@@ -69,7 +69,7 @@ def build(server=None, createonly=False, templates='', dest='.'):
 
     # Copy the config file
     config = prepare_xen_config(server)
-    with open(config_file, w) as f:
+    with open(config_file, 'w') as f:
         f.write(config)
 
     # Copy the Disks files
@@ -81,18 +81,18 @@ def build(server=None, createonly=False, templates='', dest='.'):
     os_family = get_distrib_family(mount_point)
     if os_family == 'redhat':
         for iface in server.get('interfaces'):
-            with open(os.path.join(mount_point, 'etc/sysconfig/network-scripts/ifcfg-'+ iface.get('name')), w) as f:
+            with open(os.path.join(mount_point, 'etc/sysconfig/network-scripts/ifcfg-'+ iface.get('name')), 'w') as f:
                 template = Template(RH_IFACE_TPL)
                 f.write(template.render(iface))
     elif os_family == 'debian':
-        with open(os.path.join(mount_point, 'etc/network/interfaces'), w) as f:
+        with open(os.path.join(mount_point, 'etc/network/interfaces'), 'w') as f:
             template = Template(DEB_IFACE_TPL)
             f.write(template.render(server.get('interfaces')))
     else:
         print "Unknown os - no network configured"
 
     if server.get('hostname'):
-        with open(os.path.join(mount_point, 'etc/hostname'), w) as f:
+        with open(os.path.join(mount_point, 'etc/hostname'), 'w') as f:
             f.write(server.get('hostname'))
 
     umount_images(mount_point)

@@ -156,7 +156,6 @@ def parse_ags(args):
         'swap': float(args.get('--swap')),
         'interfaces': interfaces
     }
-    print server
     return server
 
 if __name__ == '__main__':
@@ -165,8 +164,6 @@ if __name__ == '__main__':
         version="version "+ __version__,
         help=True
     )
-
-    print args
 
     if args.get('configure'):
         print "Configure the tool (soon)."
