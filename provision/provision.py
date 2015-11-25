@@ -60,7 +60,7 @@ def build(server=None, createonly=False, templates='', dest='.'):
         raise RuntimeError('Missing template image')
     
     try:
-        os.makedirs(os.path.dirname(config_file))
+        os.makedirs(dest_folder)
     except OSError as e:
         # File exist
         if e.errno == 17:
