@@ -56,9 +56,8 @@ def build(server=None, createonly=False, templates='', dest='.'):
         raise RuntimeError('Xen config file already exist')
 
     template_folder = os.path.join(os.path.realpath(templates), server.get('image'))
-    for f in ('disk.img', 'swap.img'):
-        if not os.path.exists(os.path.join(template_folder, f)):
-            raise RuntimeError('Missing template images')
+    if not os.path.exists(os.path.join(template_folder, 'disk.img')):
+        raise RuntimeError('Missing template image')
     
     try:
         os.makedirs(os.path.dirname(config_file))
@@ -78,7 +77,6 @@ def build(server=None, createonly=False, templates='', dest='.'):
     shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
     subprocess.Popen('e2fsck -f %s' % (os.path.join(dest_folder, 'disk.img')))
     subprocess.Popen('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), server.get('disk')))
-
 
     # Handle SWAP
     subprocess.Popen('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
