@@ -85,4 +85,5 @@ COMMIT
 -A FORWARD -i eth1 -j ACCEPT
 {%- endif %}{%- endif %}
 COMMIT
+
 '''
