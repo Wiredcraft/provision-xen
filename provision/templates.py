@@ -62,28 +62,27 @@ GATEWAY={{ gateway }}
 # Simple Iptables template - consider eth0 public, eth1 private
 # Useful for gateway / router
 #
-IPTABLES_TPL = '''
-*nat
+IPTABLES_TPL = '''*nat
 :PREROUTING ACCEPT [0:0]
 :INPUT ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
-{% if portforwards is defined %}
-{% for pf in portforwards %}
+{%- if portforwards is defined %}
+{% for pf in portforwards -%}
 -A PREROUTING -i eth0 -p tcp -m tcp --dport {{ pf.from }} -j DNAT --to-destination {{ pf.to }}
 {% endfor %}
 {% endif %}
-{% if gateway is defined %}{% if gateway %}
+{% if gateway is defined -%}{% if gateway -%}
 -A POSTROUTING -o eth0 -j MASQUERADE
-{% endif %}{% endif %}
+{%- endif %}{%- endif %}
 COMMIT
 
 *filter
 :INPUT ACCEPT [0:0]
 :FORWARD ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
-{% if gateway is defined %}{% if gateway %}
+{% if gateway is defined -%}{% if gateway -%}
 -A FORWARD -i eth1 -j ACCEPT
-{% endif %}{% endif %}
+{%- endif %}{%- endif %}
 COMMIT
 '''

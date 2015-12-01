@@ -143,7 +143,7 @@ def build(server=None, createonly=False, templates='', dest='.'):
                 f.write(template.render(server.get('firewall')))
             with open(os.path.join(mount_point, 'etc/network/if-pre-up.d/iptables'), 'w') as f:
                 print '  - Preparing Firewall restore script'
-                f.write('/sbin/iptables-restore < /etc/iptables.rules')
+                f.write('#!/bin/sh\n/sbin/iptables-restore < /etc/iptables.rules')
             print '  - Setting proper permissions for firewall files'
             os.chmod(os.path.join(mount_point, 'etc/network/if-pre-up.d/iptables'), stat.S_IRUSR | stat.S_IXUSR)
             os.chmod(os.path.join(mount_point, 'etc/iptables.rules'), stat.S_IRUSR)
