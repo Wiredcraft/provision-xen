@@ -1,14 +1,14 @@
 
 import os
+import stat
 import sys
-import time
 import shutil
 import shlex
 import subprocess
 import tempfile
 
 from jinja2 import Template
-from templates import XEN_CONFIG_TPL, DEB_IFACE_TPL, RH_IFACE_TPL
+from templates import XEN_CONFIG_TPL, DEB_IFACE_TPL, RH_IFACE_TPL, IPTABLES_TPL
 
 def _run(command, message='', continue_on_failure=False, should_fail=False):
     '''
@@ -129,13 +129,25 @@ def build(server=None, createonly=False, templates='', dest='.'):
                 template = Template(RH_IFACE_TPL)
                 print '  - Preparing config for interface: %s' % iface.get('name')
                 f.write(template.render(iface))
-        # Shit way to ensure the network service get started ... shit image?
-        # subprocess.Popen(shlex.split('chroot %s systemctl enable network' % mount_point)).wait()
     elif os_family == 'debian':
         with open(os.path.join(mount_point, 'etc/network/interfaces'), 'w') as f:
             template = Template(DEB_IFACE_TPL)
             print '  - Preparing config for interfaces: %s' % ', '.join([iface.get('name') for iface in server.get('interfaces')])
             f.write(template.render(server))
+
+        # Prepare iptables if needed... (mostly for routers)
+        if server.get('firewall'):
+            with open(os.path.join(mount_point, 'etc/iptables.rules'), 'w') as f:
+                template = Template(IPTABLES_TPL)
+                print '  - Preparing Firewall rules'
+                f.write(template.render(server.get('firewall')))
+            with open(os.path.join(mount_point, 'etc/network/if-pre-up.d/iptables'), 'w') as f:
+                print '  - Preparing Firewall restore script'
+                f.write('/sbin/iptables-restore < /etc/iptables.rules')
+            print '  - Setting proper permissions for firewall files'
+            os.chmod(os.path.join(mount_point, 'etc/network/if-pre-up.d/iptables'), stat.S_IRUSR | stat.S_IXUSR)
+            os.chmod(os.path.join(mount_point, 'etc/iptables.rules'), stat.S_IRUSR)
+
     else:
         print "Unknown os - no network configured"
 

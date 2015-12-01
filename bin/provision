@@ -8,6 +8,7 @@ Usage:
                      [--interface=<interface>...] [--bridge=<bridge>...]
                      [--hostname=<hostname>] [--create-only] 
                      [--templates=<templates>] [--dest=<dest>]
+                     [--firewall]
                      --image=<image> <name>
     provision delete [--path-server=<path-server>] [--full] <name>
 
@@ -23,6 +24,7 @@ Options:
     --create-only                       Only create the instance, do not start
     --dest=<dest>                       Path where the config and disks will be created [default: .]
     --templates=<templates>             Path where we can find the image templates [default: /data/xen/templates]
+    --firewall                          Enable or not the firewall [default: False]
     <name>                              A unique name for the server
 
 Help:
@@ -83,11 +85,31 @@ Bridges:
     - 'eth0:xenbr0' --> eth0 bind to xenbr0
     - 'eth1:xenbr1' --> eth1 bind to xenbr1
 
+Firewall:
+  If the `--firewall` option is selected, a file named after the server name (server_name.iptables) is 
+  expected to be found. 
+  The format is a JSON.
+
+{
+    "portforwards": [
+        {
+            "from": 80,
+            "to": "192.168.1.2:3001"
+        },
+        {
+            "from": 443,
+            "to": "192.168.1.2:443"
+        }
+    ],
+    "gateway": True
+}
+
 """
 
 import docopt
 import os
 import sys
+import json
 from provision import __version__ 
 from provision.provision import build
 
@@ -156,6 +178,21 @@ def parse_ags(args):
         'swap': float(args.get('--swap')),
         'interfaces': interfaces
     }
+
+    # Handle firewall
+    if args.get('--firewall'):
+        fw = args.get('<name>') +'.iptables'
+        if not os.path.exists(fw):
+            raise RuntimeError('Missing Firewall file: %s' % fw)
+        
+        try:
+            firewall = json.load(fw)
+        except:
+            print 'Error while loading the Firewall file: %s' % fw
+            raise
+
+        server.update({'firewall': firewall})
+
     return server
 
 def ensure_root():
