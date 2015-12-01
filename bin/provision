@@ -186,7 +186,8 @@ def parse_ags(args):
             raise RuntimeError('Missing Firewall file: %s' % fw)
         
         try:
-            firewall = json.load(fw)
+            with open(fw, 'r') as f:
+                firewall = json.load(f)
         except:
             print 'Error while loading the Firewall file: %s' % fw
             raise
