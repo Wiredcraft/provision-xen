@@ -110,6 +110,7 @@ import docopt
 import os
 import sys
 import json
+import yaml
 from provision import __version__ 
 from provision.provision import build
 
@@ -184,10 +185,16 @@ def parse_ags(args):
         fw = args.get('<name>') +'.iptables'
         if not os.path.exists(fw):
             raise RuntimeError('Missing Firewall file: %s' % fw)
+
+        with open(fw, 'r') as f:
+            data = f.read()
         
         try:
-            with open(fw, 'r') as f:
-                firewall = json.load(f)
+            # Try to load as json
+            firewall = json.loads(data)
+        except ValueError:
+            # Try as yaml... need better logic
+            firewall = yaml.safe_load(data)
         except:
             print 'Error while loading the Firewall file: %s' % fw
             raise

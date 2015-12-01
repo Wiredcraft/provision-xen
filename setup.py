@@ -20,7 +20,7 @@ setup(
     author=__author__,
     author_email=__author_email__,
     license='MIT',
-    install_requires=['docopt', 'jinja2'],
+    install_requires=['docopt', 'jinja2', 'pyyaml'],
     package_dir={ 
         'provision': 'provision'
     },
