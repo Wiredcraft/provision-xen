@@ -25,6 +25,7 @@ Options:
     --dest=<dest>                       Path where the config and disks will be created [default: .]
     --templates=<templates>             Path where we can find the image templates [default: /data/xen/templates]
     --firewall                          Enable or not the firewall [default: False]
+    --lvm                               Enable or not the use of LVM instead of the disk image file [default: False]
     <name>                              A unique name for the server
 
 Help:
@@ -200,6 +201,12 @@ def parse_ags(args):
             raise
 
         server.update({'firewall': firewall})
+
+    # Handle lvm, if True, use LVM instead of the use of disk image.
+    if args.get('--lvm'):
+        server.update({
+            'lvm': True,
+        })
 
     return server
 

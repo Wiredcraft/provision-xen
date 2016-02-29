@@ -20,6 +20,29 @@ on_reboot   = 'restart'
 on_crash    = 'restart'
 '''
 
+XEN_CONFIG_LVM_TPL = '''
+bootloader = '/usr/lib/xen-4.4/bin/pygrub'
+
+name        = '{{ name }}'
+vcpus       = {{ cpu }}
+memory      = {{ ram }}
+root        = '/dev/xvda2 ro'
+disk        = [
+                  '{{ dest }}/{{ name }}/disk.img,raw,xvda2,w',
+                  '{{ dest }}/{{ name }}/swap.img,raw,xvda1,w',
+              ]
+vif         = [
+{%- for iface in interfaces %}
+                  '{% if iface.address is defined %}ip={{ iface.address }}{% endif %}{% if iface.bridge is defined %},bridge={{ iface.bridge }}{% endif %}',
+{%- endfor %}
+              ]
+
+on_poweroff = 'destroy'
+on_reboot   = 'restart'
+on_crash    = 'restart'
+'''
+
+
 #
 # Need to pass server.interfaces
 #

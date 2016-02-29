@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 
 from jinja2 import Template
-from templates import XEN_CONFIG_TPL, DEB_IFACE_TPL, RH_IFACE_TPL, IPTABLES_TPL
+from templates import XEN_CONFIG_TPL, XEN_CONFIG_LVM_TPL, DEB_IFACE_TPL, RH_IFACE_TPL, IPTABLES_TPL
 
 def _run(command, message='', continue_on_failure=False, should_fail=False):
     '''
@@ -38,15 +38,26 @@ def prepare_xen_config(server, dest='.'):
     Prepare the Xen config file
     '''
     server.update({'dest': os.path.realpath(dest)})
-    template = Template(XEN_CONFIG_TPL)
+
+    if server.get('lvm'):
+        template = Template(XEN_CONFIG_LVM_TPL)
+    else:
+        template = Template(XEN_CONFIG_TPL)
     return template.render(server)
 
 def mount_images(disk):
     '''
-    Mount a disk file in loopback mode, and return the folder
+    Mount a disk file in loopback mode or mount a block device,
+    and return the folder.
     '''
     tempfolder = tempfile.mkdtemp()
-    _run('mount -o loop %s %s' % (disk, tempfolder), message='Mounting image %s in loopback' % disk)
+    mode = os.stat(disk).st_mode
+
+    # If it is a block device
+    if stat.S_ISBLK(mode):
+        _run('mount %s %s' % (disk, tempfolder), message='Mounting block device: %s' % disk)
+    else:
+        _run('mount -o loop %s %s' % (disk, tempfolder), message='Mounting image %s in loopback' % disk)
     return tempfolder
 
 def umount_images(mount_point):
@@ -101,27 +112,68 @@ def build(server=None, createonly=False, templates='', dest='.'):
     with open(config_file, 'w') as f:
         f.write(config)
 
-    # Copy/resize the disk files
-    shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
-    _run('e2fsck -f -p %s' % (os.path.join(dest_folder, 'disk.img')),
-        message='Checking the filesystem')
-    _run('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))),
-        message='Resizing the disk')
-
-    # Handle SWAP
-    _run('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
+    if server.get("lvm"):
+        _run(
+            'lvcreate -L %sG -n xen-sbux-%s-disk wcl-vg;' % (
+                int(server.get('disk')),
+                server.get('name'),
+            )
+        )
+        _run(
+            'lvcreate -L %sG -n xen-sbux-%s-swap wcl-vg;' % (
+                int(server.get('disk')),
+                server.get('name'),
+            )
+        )
+        _run(
+            'mkswap /dev/wcl-vg/xen-sbux-%s-swap' % server.get('name')
+        )
+        _run(
+            'dd if=%s of=/dev/wcl-vg/xen-sbux-%s-disk bs=1M' % (
+                os.path.join(template_folder, 'disk.img'),
+                server.get('name')
+            )
+        )
+        _run(
+            'resize2fs /dev/wcl-vg/xen-sbux-%s-disk' % server.get('name'),
+            message='Resizing the disk'
+        )
+        _run(
+            'ln -s /dev/wcl-vg/xen-sbux-%s-disk %s' % (
+                server.get('name'),
+                os.path.join(dest_folder, 'disk.img'),
+            )
+        )
+        _run(
+            'ln -s /dev/wcl-vg/xen-sbux-%s-swap %s' % (
+                server.get('name'),
                 os.path.join(dest_folder, 'swap.img'),
-                1024*1024,
-                int(server.get('swap')*1024)
-            ),
-        message='Creating the SWAP disk')
-    _run('mkswap %s' % (
-                os.path.join(dest_folder, 'swap.img')
-            ),
-        message='Setup the SWAP area with mkswap')
+            )
+        )
+
+    else:
+        # Copy/resize the disk files
+        shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
+        _run('e2fsck -f -p %s' % (os.path.join(dest_folder, 'disk.img')),
+            message='Checking the filesystem')
+        _run('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))),
+            message='Resizing the disk')
+
+        # Handle SWAP
+        _run('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
+                    os.path.join(dest_folder, 'swap.img'),
+                    1024*1024,
+                    int(server.get('swap')*1024)
+                ),
+            message='Creating the SWAP disk')
+        _run('mkswap %s' % (
+                    os.path.join(dest_folder, 'swap.img')
+                ),
+            message='Setup the SWAP area with mkswap')
 
     # Do the image update
     mount_point = mount_images(os.path.join(dest_folder, 'disk.img'))
+
     os_family = get_distrib_family(mount_point)
     if os_family == 'redhat':
         for iface in server.get('interfaces'):
