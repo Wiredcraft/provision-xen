@@ -1,4 +1,3 @@
-
 import os
 import stat
 import sys
@@ -115,13 +114,13 @@ def build(server=None, createonly=False, templates='', dest='.'):
     if server.get("lvm"):
         _run(
             'lvcreate -L %sG -n xen-sbux-%s-disk wcl-vg' % (
-                int(server.get('disk')),
+                float(server.get('disk')),
                 server.get('name'),
             )
         )
         _run(
             'lvcreate -L %sG -n xen-sbux-%s-swap wcl-vg' % (
-                int(server.get('disk')),
+                float(server.get('swap')),
                 server.get('name'),
             )
         )
@@ -156,14 +155,20 @@ def build(server=None, createonly=False, templates='', dest='.'):
         shutil.copy(os.path.join(template_folder, 'disk.img'), os.path.join(dest_folder, 'disk.img'))
         _run('e2fsck -f -p %s' % (os.path.join(dest_folder, 'disk.img')),
             message='Checking the filesystem')
-        _run('resize2fs %s %sG' % (os.path.join(dest_folder, 'disk.img'), int(server.get('disk'))),
-            message='Resizing the disk')
+
+        _run(
+            'resize2fs %s %sM' % (
+                os.path.join(dest_folder, 'disk.img'),
+                int(float(server.get('disk'))*1024)
+            ),
+            message='Resizing the disk'
+        )
 
         # Handle SWAP
         _run('dd if=/dev/zero of=%s bs=%s seek=%s count=0' % (
                     os.path.join(dest_folder, 'swap.img'),
                     1024*1024,
-                    int(server.get('swap')*1024)
+                    int(float(server.get('swap'))*1024),
                 ),
             message='Creating the SWAP disk')
         _run('mkswap %s' % (
