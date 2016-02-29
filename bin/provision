@@ -9,6 +9,7 @@ Usage:
                      [--hostname=<hostname>] [--create-only] 
                      [--templates=<templates>] [--dest=<dest>]
                      [--firewall]
+                     [--lvm]
                      --image=<image> <name>
     provision delete [--path-server=<path-server>] [--full] <name>
 

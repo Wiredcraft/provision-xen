@@ -114,13 +114,13 @@ def build(server=None, createonly=False, templates='', dest='.'):
 
     if server.get("lvm"):
         _run(
-            'lvcreate -L %sG -n xen-sbux-%s-disk wcl-vg;' % (
+            'lvcreate -L %sG -n xen-sbux-%s-disk wcl-vg' % (
                 int(server.get('disk')),
                 server.get('name'),
             )
         )
         _run(
-            'lvcreate -L %sG -n xen-sbux-%s-swap wcl-vg;' % (
+            'lvcreate -L %sG -n xen-sbux-%s-swap wcl-vg' % (
                 int(server.get('disk')),
                 server.get('name'),
             )
