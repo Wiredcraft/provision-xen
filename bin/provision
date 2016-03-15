@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 """
-Usage: 
+Usage:
     provision (--version|--help)
     provision configure
     provision create --config=<config>
     provision create [--cpu=<cpu>] [--ram=<ram>] [--disk=<disk>] [--swap=<swap>]
                      [--interface=<interface>...] [--bridge=<bridge>...]
-                     [--hostname=<hostname>] [--create-only] 
+                     [--hostname=<hostname>] [--create-only]
                      [--templates=<templates>] [--dest=<dest>]
                      [--firewall]
                      [--lvm]
+                     [--maxcpu=<maxcpu>]
                      --image=<image> <name>
     provision delete [--path-server=<path-server>] [--full] <name>
 
 Options:
     --config=<config>                   Path to a config file that specify the details of a server
     --cpu=<cpu>                         Number of CPU cores to allocate to the server [default: 4]
+    --maxcpu=<maxcpu>                   The max number of CPU cores that can be allocated to the VM
+                                        when you change the CPU cores on live by using `xl vcpu-set` [default: 24]
     --ram=<ram>                         Amount of RAM to allocate to the server (in MB) [default: 512]
     --disk=<disk>                       Disk size to allocate to the server (in GB) [default: 4]
     --swap=<swap>                       SWAP size to allocate to the server (in GB) [default: 0.5]
@@ -176,6 +179,7 @@ def parse_ags(args):
         'hostname': args.get('--hostname'),
         'image': args.get('--image'),
         'cpu': int(args.get('--cpu')),
+        'maxcpu': int(args.get('--maxcpu')),
         'ram': int(args.get('--ram')),
         'disk': float(args.get('--disk')),
         'swap': float(args.get('--swap')),

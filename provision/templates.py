@@ -3,6 +3,7 @@ bootloader = '/usr/lib/xen-4.4/bin/pygrub'
 
 name        = '{{ name }}'
 vcpus       = {{ cpu }}
+maxvcpus    = {{ maxcpu }}
 memory      = {{ ram }}
 root        = '/dev/xvda2 ro'
 disk        = [
@@ -25,6 +26,7 @@ bootloader = '/usr/lib/xen-4.4/bin/pygrub'
 
 name        = '{{ name }}'
 vcpus       = {{ cpu }}
+maxvcpus    = {{ maxcpu }}
 memory      = {{ ram }}
 root        = '/dev/xvda2 ro'
 disk        = [
