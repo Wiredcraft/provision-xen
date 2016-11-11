@@ -10,6 +10,7 @@ Quick steps
 -----------
 
 Quick highlight of the steps:
+
 - find the base image
 - copy the image file into a new file
 - extend the size of the file (using ``resize2fs`` or ``dd``)
@@ -102,6 +103,7 @@ Do the operations
 `````````````````
 
 Do whatever you need to do; e.g.
+
 - yum update
 - apt-get update / upgrade
 - install this and that ....
