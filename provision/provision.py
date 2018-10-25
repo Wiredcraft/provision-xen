@@ -112,39 +112,51 @@ def build(server=None, createonly=False, templates='', dest='.'):
         f.write(config)
 
     if server.get("lvm"):
+        print "lvcreate disk"
         _run(
-            'lvcreate -L %sG -n xen-sbux-%s-disk wcl-vg' % (
+            'lvcreate -y -L %sG -n xen-sbux-%s-disk ubuntu-vg' % (
                 float(server.get('disk')),
                 server.get('name'),
             )
         )
+        print "lvcreate swap"
         _run(
-            'lvcreate -L %sG -n xen-sbux-%s-swap wcl-vg' % (
+            'lvcreate -y -L %sG -n xen-sbux-%s-swap ubuntu-vg' % (
                 float(server.get('swap')),
                 server.get('name'),
             )
         )
+        print "make swap"
         _run(
-            'mkswap /dev/wcl-vg/xen-sbux-%s-swap' % server.get('name')
+            'mkswap /dev/ubuntu-vg/xen-sbux-%s-swap' % server.get('name')
         )
+        print "Copy template image to disk"
         _run(
-            'dd if=%s of=/dev/wcl-vg/xen-sbux-%s-disk bs=1M' % (
+            'dd if=%s of=/dev/ubuntu-vg/xen-sbux-%s-disk bs=1M' % (
                 os.path.join(template_folder, 'disk.img'),
                 server.get('name')
             )
         )
+        print "e2fsck"
         _run(
-            'resize2fs /dev/wcl-vg/xen-sbux-%s-disk' % server.get('name'),
+            'e2fsck -f -p /dev/ubuntu-vg/xen-sbux-%s-disk' % (
+                server.get('name'),
+            ),
+            message='Checking the filesystem'
+        )
+        print "resize2fs"
+        _run(
+            'resize2fs /dev/ubuntu-vg/xen-sbux-%s-disk' % server.get('name'),
             message='Resizing the disk'
         )
         _run(
-            'ln -s /dev/wcl-vg/xen-sbux-%s-disk %s' % (
+            'ln -s /dev/ubuntu-vg/xen-sbux-%s-disk %s' % (
                 server.get('name'),
                 os.path.join(dest_folder, 'disk.img'),
             )
         )
         _run(
-            'ln -s /dev/wcl-vg/xen-sbux-%s-swap %s' % (
+            'ln -s /dev/ubuntu-vg/xen-sbux-%s-swap %s' % (
                 server.get('name'),
                 os.path.join(dest_folder, 'swap.img'),
             )

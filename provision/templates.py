@@ -1,5 +1,5 @@
 XEN_CONFIG_TPL = '''
-bootloader = '/usr/lib/xen-4.4/bin/pygrub'
+bootloader = '/usr/lib/xen-4.9/bin/pygrub'
 
 name        = '{{ name }}'
 vcpus       = {{ cpu }}
@@ -22,7 +22,7 @@ on_crash    = 'restart'
 '''
 
 XEN_CONFIG_LVM_TPL = '''
-bootloader = '/usr/lib/xen-4.4/bin/pygrub'
+bootloader = '/usr/lib/xen-4.9/bin/pygrub'
 
 name        = '{{ name }}'
 vcpus       = {{ cpu }}
